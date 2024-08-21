@@ -1,0 +1,8 @@
+!lib/libed25519_dalek_ffi_nosimd.so
+!lib/libed25519_dalek_ffi_nosimd.a
+
+!lib/libed25519_dalek_ffi_avx2.so
+!lib/libed25519_dalek_ffi_avx2.a
+
+!lib/libed25519_dalek_ffi_avx512.so
+!lib/libed25519_dalek_ffi_avx512.a

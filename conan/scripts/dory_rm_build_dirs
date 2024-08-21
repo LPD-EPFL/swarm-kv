@@ -1,0 +1,30 @@
+#!/bin/bash
+
+ROOT_DIR=$1
+TIDY_DIR="$ROOT_DIR"/".clang-tidy-builds"
+
+# Exit if variable is empty
+[ -z "$ROOT_DIR" ] && exit 1
+
+# Exit if path is not absolute
+[[ ! "$ROOT_DIR" = /* ]] && exit 1
+
+for build_dir in $(find "$ROOT_DIR" -type d -not -path "$TIDY_DIR/*" -name build); do
+    if [ -f "$build_dir"/deploy_manifest.txt ]; then
+        rm -rf $build_dir
+    elif [ -f "$build_dir"/conan.lock ]; then
+        rm -rf $build_dir
+    else
+        contains_only_conan_packages=1
+        for conan_package in `ls -A $build_dir`; do
+            if [ ! -f "$build_dir"/"$conan_package"/conan.lock ]; then
+                contains_only_conan_packages=0
+                break
+            fi
+        done
+
+        if [ "$contains_only_conan_packages" -eq "1" ]; then
+            rm -rf $build_dir
+        fi
+    fi
+done

@@ -1,0 +1,15 @@
+shared : []
+extern : []
+third-party : []
+
+memstore : [shared, extern]
+
+ctrl : [shared, extern, memory]
+conn : [shared, ctrl, memstore, third-party]
+crypto : [shared, memstore]
+special : [third-party, shared]
+memory : [special, shared]
+race : [extern, shared, memstore, ctrl, conn]
+
+fusee : [extern, shared, memstore, ctrl, conn, crypto]
+swarm-kv : [extern, shared, memstore, ctrl, conn, crypto]

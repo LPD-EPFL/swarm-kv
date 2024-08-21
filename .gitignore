@@ -1,0 +1,52 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+main
+
+# MAC specific
+.DS_Store
+
+# Editor specific
+.vscode/
+.idea/
+
+# Other
+build/
+
+# Custom makefile artifacts
+.deps/
+
+# Clang-tidy artifacts
+/.clang-tidy-builds
+
+# Hack for VS Code to find local Conan headers
+sym-includes/
