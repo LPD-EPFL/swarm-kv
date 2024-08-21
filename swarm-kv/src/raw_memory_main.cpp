@@ -40,7 +40,7 @@ static void completeRdma(ReliableConnection& rc) {
       return;
     }
   }
-};
+}
 
 int main(int argc, char* argv[]) {
   ProcId proc_id = 0;
