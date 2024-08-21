@@ -16,9 +16,9 @@ using namespace dory;
 using namespace dory::conn;
 using namespace conn;
 
-const uint64_t warmup = 1'000'000;
+const uint64_t default_warmup = 1'000'000;
 const uint64_t default_iter_count = 1'000'000;
-const uint64_t keepwarm = 500'000;
+const uint64_t default_keepwarm = 500'000;
 
 int main(int argc, char* argv[]) {
   ProcId proc_id = 0;
@@ -94,6 +94,9 @@ int main(int argc, char* argv[]) {
               << std::endl;
     return 1;
   }
+
+  const uint64_t warmup = iter_count < default_warmup ? iter_count : default_warmup;
+  const uint64_t keepwarm = iter_count < default_keepwarm ? iter_count : default_keepwarm;
 
   const uint64_t start_measurements = warmup;
   const uint64_t stop_measurements = start_measurements + iter_count;
