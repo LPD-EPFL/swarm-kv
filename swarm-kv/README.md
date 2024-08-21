@@ -1,6 +1,6 @@
 # SWARM-KV
 
-An RDMA-based disagregated KVStore with 1 RTT UPDATEs and GETs thanks to the SWARM replication protocol
+A fault-tolerant RDMA-based disaggregated key-value store with 1-RTT UPDATEs and GETs thanks to the SWARM replication protocol
 
 ## Requirements
 
