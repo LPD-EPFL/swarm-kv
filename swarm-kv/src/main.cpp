@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
     layout.num_tsp = layout.num_clients;
   }
   if (layout.server_logs_per_client == 0) {
-    layout.server_logs_per_client = 1000 + (total_iter_count * 11) / 20;
+    layout.server_logs_per_client = 110000 + (total_iter_count * 11) / 20;
   }
 
   pointer_cache_size =
