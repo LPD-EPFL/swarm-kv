@@ -1,11 +1,8 @@
-![alt text](logo/dory-logo-256.png "Dory")
+# SWARM-KV
 
-*The word "dory" was first attested by Homer with the meanings of "wood" and "spear"*
+SWARM is a wait-free replication protocol for shared data in disaggregated memory that provides 1-RTT reads and writes.
 
-
-#### [Wiki](https://github.com/LPD-EPFL/dory/wiki)
-![clang-format-test](https://github.com/LPD-EPFL/dory/workflows/clang-format-test/badge.svg)
-
+SWARM-KV is an RDMA-based disaggregated key-value store that leverages SWARM to offer 1-RTT GETs and UPDATEs.
 
 ## Requirements
 
@@ -29,17 +26,16 @@
 Run from within the root:
 
 ```sh
-./build.py
+./build.py swarm-kv
 ```
 
-this will create all conan packages and build the executables.
+This will create all conan packages required by swarm-kv, and its executables.
 
 __Note:__ If `gcc` is available, it is used as the default compiler. In a system with `clang` only, then `clang` becomes the default compiler. In any case, you can check the available compilers/compiler versions by calling `./build.py --help`.
 
-
 ## Docker
 
-You can manually build the [Dockerfile](https://github.com/LPD-EPFL/dory/blob/master/Dockerfile) under the root of this repo.
+You can manually build the [Dockerfile](https://github.com/LPD-EPFL/swarm-kv/blob/master/Dockerfile) under the root of this repo.
 
 ```sh
 docker build -t dory .
@@ -49,4 +45,4 @@ docker build -t dory .
 
 ## Usage
 
-Refer to the respective package READMEs.
+Refer to [SWARM-KV's artifact repository](https://github.com/LPD-EPFL/swarm-artifacts) for detailed instructions on how to run the experiments.
