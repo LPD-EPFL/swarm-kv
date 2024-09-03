@@ -67,13 +67,13 @@ class RelaxedMaxRegFuture : public BasicFuture {
     for (uint64_t i = 0; i < state.layout.num_servers; i++) {
       auto idx = (main_server_idx + i) % state.layout.num_servers;
       auto& maxreg = maxregs.at(idx);
-      maxreg.primary = idx == 0;
+      maxreg.primary = i == 0;
       maxreg.enable_in_place =
           state.layout.in_place &&
           (maxreg.primary ||
-           (main_server_idx < state.dead_servers && (kv_id % 2) == (i - 1)));
+           (main_server_idx < state.dead_servers && (kv_id & 1) == (i - 1)));
       maxreg.lazyness_level =
-          i <= state.layout.majority ? 0 : i - state.layout.majority;
+          i < state.layout.majority ? 0 : 1 + i - state.layout.majority;
       maxreg.enable_out_of_place = true;
       maxreg.forKV(kv_id, _my_last_ts, measuring);
     }
