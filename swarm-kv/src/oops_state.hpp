@@ -16,7 +16,7 @@
 #include "latency.hpp"
 #include "layout.hpp"
 #include "main.hpp"  // TODO(zyf): remove/rename/whatever
-#include "race/client_index.hpp"
+#include "lru-cache.hpp"
 #include "tspointers.hpp"
 
 using timepoint = std::chrono::steady_clock::time_point;
@@ -80,7 +80,7 @@ class OopsState {
 
   OopsState(Layout _layout, conn::RcConnectionExchanger<ProcId>& rcx,
             ProcId _proc_id, uint64_t pointer_cache_size,
-            bool measure_batches = false, uint64_t death_point = uint64_t(-1),
+            bool measure_batches = false, uint64_t death_point = UINT64_MAX,
             uint64_t iter_count = 10000000)
       : layout{_layout},
         proc_id{_proc_id},
@@ -88,7 +88,7 @@ class OopsState {
         pointer_cache{pointer_cache_size},
         measure_batches{measure_batches},
         death_point{death_point} {
-    index = std::make_shared<dory::race::IndexClient>(proc_id, layout.num_servers, layout.bucket_bits, layout.bucket_cache_size);
+    index = std::make_shared<dory::race::IndexClient>(proc_id, layout.num_servers, layout.bucket_bits);
     if (measure_batches) {
       batch_measurements.reserve(1 + (iter_count - 1) / BATCH_SIZE);
     }
@@ -106,7 +106,7 @@ class OopsState {
     auto time = ts_time_offset ? now - ts_time_offset.value() : 0;
     if (time > death_point) {
       dead_servers = 1;
-      death_point = uint64_t(-1);
+      death_point = UINT64_MAX;
     }
     auto ts = time / TS_GRANULARITY;
     if (ts < max_ever_seen_ts) {

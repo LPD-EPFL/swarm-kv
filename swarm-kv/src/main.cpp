@@ -40,10 +40,10 @@ int main(int argc, char* argv[]) {
   bool measure_batches = false;
 
   uint64_t iter_count = default_iter_count;
+  uint64_t warmup = UINT64_MAX;
 
   layout.bucket_bits = 18;
-  layout.bucket_cache_size = 0;
-  size_t pointer_cache_size = UINT64_MAX / 1024;
+  size_t pointer_cache_size = UINT64_MAX;
   bool detailed = true;
 
   std::string ycsb_path = "./YCSB/bin/ycsb.sh";
@@ -66,13 +66,11 @@ int main(int argc, char* argv[]) {
       lyra::opt(layout.server_logs_per_client, "server_logs_per_client")
           .optional()["-l"]["--logs"] |
       lyra::opt(layout.key_size, "key_size").optional()["-k"]["--keysize"] |
-      lyra::opt(layout.value_size, "value_size").optional()["-v"]["--valuesize"]
+      lyra::opt(layout.value_size, "value_size").optional()["-v"]["--valuesize"] |
       //  | lyra::opt(layout.logs_per_client, "logs_per_client")
       //        .optional()["-l"]["--logsperclient"]
-      | lyra::opt(layout.bucket_bits, "bucket_bits")
+      lyra::opt(layout.bucket_bits, "bucket_bits")
             .optional()["-b"]["--bucketbits"] |
-      lyra::opt(layout.bucket_cache_size, "bucket_cache_size")
-          .optional()["-u"]["--bucketcachesize"] |
       lyra::opt(pointer_cache_size, "pointer_cache_size")
           .optional()["-t"]["--pointercachesize"] |
       lyra::opt(workload, "workload").optional()["-w"]["--workload"] |
@@ -86,7 +84,8 @@ int main(int argc, char* argv[]) {
       lyra::opt(death_point, "death_point").optional()["-D"]["--death_point"] |
       lyra::opt(measure_batches, "measure_batches")
           .optional()["-B"]["--measure_batches"] |
-      lyra::opt(iter_count, "iter_count").optional()["-I"]["--iter_count"];
+      lyra::opt(iter_count, "iter_count").optional()["-I"]["--iter_count"] |
+      lyra::opt(warmup, "warmup").optional()["-W"]["--warmup"];
 
   auto result = cli.parse({argc, argv});
   if (!result) {
@@ -94,9 +93,10 @@ int main(int argc, char* argv[]) {
               << std::endl;
     return 1;
   }
-
-  const uint64_t warmup = iter_count < default_warmup ? iter_count : default_warmup;
-  const uint64_t keepwarm = iter_count < default_keepwarm ? iter_count : default_keepwarm;
+  if(warmup == UINT64_MAX) {
+    warmup = iter_count < default_warmup ? iter_count : default_warmup;
+  }
+  const uint64_t keepwarm = (iter_count + warmup) / 4;
 
   const uint64_t start_measurements = warmup;
   const uint64_t stop_measurements = start_measurements + iter_count;
@@ -109,11 +109,13 @@ int main(int argc, char* argv[]) {
     layout.num_tsp = layout.num_clients;
   }
   if (layout.server_logs_per_client == 0) {
-    layout.server_logs_per_client = 110000 + (total_iter_count * 11) / 20;
+    layout.server_logs_per_client = layout.keys_per_server + 10'000 + total_iter_count * 11 / 20;
   }
 
-  pointer_cache_size =
-      (pointer_cache_size * 1024) / (layout.guess_ts ? 32 : 24);
+  if(pointer_cache_size != UINT64_MAX) {
+    pointer_cache_size =
+        (pointer_cache_size * 1024) / (layout.guess_ts ? 32 : 24);
+  }
 
   auto num_proc = layout.num_clients + layout.num_servers;
 

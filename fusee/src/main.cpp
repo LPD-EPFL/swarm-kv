@@ -6,35 +6,34 @@
 #include "race/client_index.hpp"
 
 #include <dory/shared/match.hpp>
+#include "lru-cache.hpp"
 
 using namespace dory;
 using namespace dory::conn;
 using namespace conn;
 
-const size_t iter_count = 1'000'000;
-const size_t warmup = 1'000'000;
-const size_t keepwarm = 500'000;
-const size_t start_measurements = warmup;
-const size_t stop_measurements = warmup + iter_count;
-const size_t total_iter_count = warmup + iter_count + keepwarm;
+const uint64_t default_warmup = 1'000'000;
+const uint64_t default_iter_count = 1'000'000;
+const uint64_t default_keepwarm = 500'000;
 
 int main(int argc, char* argv[]) {
   Layout layout;
   layout.num_clients = 1;
 
   layout.num_keys = 100'000;
-  layout.max_num_updates = 50'000 + total_iter_count / 2;
   layout.key_size = 24;
   layout.value_size = 64;
 
   size_t bucket_bits = 18;
-  size_t bucket_cache_size = 0;
-  size_t pointer_cache_size = UINT64_MAX / 1024;
+  uint64_t pointer_cache_size = UINT64_MAX;
 
   layout.kv_read_slot_count = 128;
 
   std::string ycsb_path = "./YCSB/bin/ycsb";
   std::string workload = "./YCSB/workloads/swarm-workloada";
+
+  size_t iter_count = default_iter_count;
+  uint64_t warmup = UINT64_MAX;
 
   LatencyProfiler get_stat, update_stat, search_stat;
 
@@ -54,12 +53,12 @@ int main(int argc, char* argv[]) {
       lyra::opt(layout.kv_read_slot_count, "kv_read_slot_count")
           .optional()["-e"]["--kvcacheentrycount"] |
       lyra::opt(bucket_bits, "bucket_bits").optional()["-b"]["--bucketbits"] |
-      lyra::opt(bucket_cache_size, "bucket_cache_size")
-          .optional()["-u"]["--bucketcachesize"] |
       lyra::opt(pointer_cache_size, "pointer_cache_size")
           .optional()["-t"]["--pointercachesize"] |
       lyra::opt(workload, "workload").optional()["-w"]["--workload"] |
-      lyra::opt(ycsb_path, "ycsb_path").optional()["-y"]["--ycsbpath"];
+      lyra::opt(ycsb_path, "ycsb_path").optional()["-y"]["--ycsbpath"] |
+      lyra::opt(iter_count, "iter_count").optional()["-I"]["--iter_count"] |
+      lyra::opt(warmup, "warmup").optional()["-W"]["--warmup"];
 
   auto result = cli.parse({argc, argv});
   if (!result) {
@@ -67,8 +66,20 @@ int main(int argc, char* argv[]) {
               << std::endl;
     return 1;
   }
+  if(warmup == UINT64_MAX) {
+    warmup = iter_count < default_warmup ? iter_count : default_warmup;
+  }
+  const uint64_t keepwarm = (iter_count + warmup) / 4;
 
-  pointer_cache_size = (pointer_cache_size * 1024) / 24;
+  const uint64_t start_measurements = warmup;
+  const uint64_t stop_measurements = start_measurements + iter_count;
+  const uint64_t total_iter_count = stop_measurements + keepwarm;
+
+  layout.max_num_updates = layout.num_keys + 10'000 + total_iter_count * 11 / 20;
+
+  if(pointer_cache_size != UINT64_MAX) {
+    pointer_cache_size = (pointer_cache_size * 1024) / 24;
+  }
 
   layout.keys_per_server = (layout.num_keys + layout.max_num_updates) * layout.num_clients;
 
@@ -182,7 +193,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::shared_ptr<dory::race::ClientIndex>> indexes;
     for (ProcId id = 1; id <= layout.num_servers; id++) {
       auto x = std::make_shared<dory::race::ClientIndex>(
-        layout.proc_id, id, bucket_bits, bucket_cache_size, std::to_string(id));
+        layout.proc_id, id, bucket_bits, std::to_string(id));
       indexes.emplace_back(x);
     }
 
@@ -233,7 +244,7 @@ int main(int argc, char* argv[]) {
         auto value = insert.second;
 
         auto hkey = hash(key);
-        auto search = indexes[0]->search(hkey, true /* use cache ? */);
+        auto search = indexes[0]->search(hkey);
 
         auto* local_log = client.prepareToWriteEntry(key, value);
         auto kv_id = client.write(local_log, 0);
@@ -258,10 +269,10 @@ int main(int argc, char* argv[]) {
         }
 
 
-        pointer_cache.put(hkey, kv_id);
-        // fmt::print("Ts: {}, CachedTs : {}\n", local_log->kv.ts, pointer_cache.get(hkey)->second.second);
+        // pointer_cache.put(hkey, kv_id);
+        // fmt::print("Ts: {}, CachedTs : {}\n", local_log->kv.ts, *(pointer_cache.get(hkey)));
 
-        // auto sf = index.search(hkey, false).await();
+        // auto sf = index.search(hkey).await();
 
         // if (sf.nb_matches == 0) {
         //   std::cout << "No match for key " << fakekey << " even though it was just inserted ???" << std::endl;
@@ -363,9 +374,9 @@ int main(int argc, char* argv[]) {
       auto search = main_index.search(hkey);
       uint64_t new_kv_id;
       
-      auto it = pointer_cache.get(hkey);
-      if (it != pointer_cache.end()) {
-        auto kv_id = it->second;
+      auto cache_entry = pointer_cache.get(hkey);
+      if (cache_entry) {
+        auto kv_id = *cache_entry;
         now = std::chrono::steady_clock::now();
         auto search_time = now - last_time;
         if (start_measurements <= i && i < stop_measurements) {
@@ -444,7 +455,7 @@ int main(int argc, char* argv[]) {
           cache_hit_update_finish:
 
           pointer_cache.put(hkey, new_kv_id); // TODO(zyf): actually not cache ?
-          // fmt::print("Ts: {}, CachedTs : {}\n", local_log->kv.ts, pointer_cache.get(hkey)->second.second);
+          // fmt::print("Ts: {}, CachedTs : {}\n", local_log->kv.ts, *(pointer_cache.get(hkey)));
 
           now = std::chrono::steady_clock::now();
           if (start_measurements <= i && i < stop_measurements) {
@@ -517,16 +528,10 @@ int main(int argc, char* argv[]) {
         auto entry = client.read(random_server, kv_id);
 
         if (!(std::strncmp(true_key.c_str(), entry->kv.key(), layout.key_size))) {
+          found = true;
           if (operation.second.has_value()) {
             auto value = operation.second.value();
 
-            // Phase 1.3 : read value (write is already done)
-
-            client.read(random_server, kv_id);
-
-            // auto search = main_index.search(hkey);
-            // auto matches = search.await();
-            
             auto prev_entry = search.entryFor(kv_id);
             auto offset = search.getOffsetOf(prev_entry);
             if (!offset.has_value()) {
@@ -594,7 +599,7 @@ int main(int argc, char* argv[]) {
             cache_miss_update_finish:
 
             pointer_cache.put(hkey, new_kv_id); // TODO(zyf): actually not cache ?
-            // fmt::print("Ts: {}, CachedTs : {}\n", local_log->kv.ts, pointer_cache.get(hkey)->second.second);
+            // fmt::print("Ts: {}, CachedTs : {}\n", local_log->kv.ts, *(pointer_cache.get(hkey)));
 
             now = std::chrono::steady_clock::now();
             if (start_measurements <= i && i < stop_measurements) {
@@ -617,7 +622,6 @@ int main(int argc, char* argv[]) {
               }
             }
 
-          found = true;
           break;
         }
         // } else {
@@ -647,14 +651,14 @@ int main(int argc, char* argv[]) {
                    ? static_cast<double>(total_cache_hit_count) * 100.0 /
                          static_cast<double>(search_stat.getMeasurementCount())
                    : 0);
-    fmt::print("true-hit: {}% ({}% of hits)\n", (100.0 * total_true_cache_hit_count) / iter_count, (100.0 * total_true_cache_hit_count) / total_cache_hit_count);
+    fmt::print("true-hit: {}% ({}% of hits)\n", (100.0 * total_true_cache_hit_count) / static_cast<double>(iter_count), (100.0 * total_true_cache_hit_count) / total_cache_hit_count);
     search_stat.report(true);
     fmt::print("######## GET stats:\n");
     get_stat.report(true);
     fmt::print("######## UPDATE stats:\n");
     update_stat.report(true);
-    fmt::print("global average: {}\n", (end - start) / iter_count);
-    fmt::print("aggregated tput: {}kops\n", layout.num_clients * iter_count * 1'000'000 / static_cast<uint64_t>((end - start).count()));
+    fmt::print("global average: {}\n", (end - start) / static_cast<double>(iter_count));
+    fmt::print("aggregated tput: {}kops\n", (layout.num_clients * iter_count * 1'000'000) / static_cast<uint64_t>((end - start).count()));
     std::cout << std::flush;
 
     ce.announceReady(store, "qp", "finished");

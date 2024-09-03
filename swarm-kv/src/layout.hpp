@@ -27,7 +27,6 @@ struct Layout {
   bool doorbell;
   bool in_place;
   size_t bucket_bits;
-  size_t bucket_cache_size;
 
   uint64_t num_clients;
   uint64_t num_servers;

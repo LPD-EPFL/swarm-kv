@@ -109,9 +109,9 @@ class OopsFuture : public BasicFuture {
                       state.layout.num_servers;
 
     auto cache_entry = state.pointer_cache.get(hkey);
-    if (cache_entry != state.pointer_cache.end()) {
-      kv_id = cache_entry->second.first;
-      auto tsp = cache_entry->second.second;
+    if (cache_entry) {
+      kv_id = (*cache_entry).first;
+      auto tsp = (*cache_entry).second;
 
       if (measuring) {
         state.total_cache_hit_count++;
@@ -139,9 +139,9 @@ class OopsFuture : public BasicFuture {
     log_id = state.getNextLogId();
 
     auto cache_entry = state.pointer_cache.get(hkey);
-    if (cache_entry != state.pointer_cache.end()) {
-      kv_id = cache_entry->second.first;
-      auto tsp = cache_entry->second.second;
+    if (cache_entry) {
+      kv_id = (*cache_entry).first;
+      auto tsp = (*cache_entry).second;
 
       if (measuring) {
         state.total_cache_hit_count++;

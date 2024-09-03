@@ -28,15 +28,12 @@
 
 #include "../base.hpp"
 #include "buckets.hpp"
-#include "lru-cache.hpp"
 
 namespace dory::race {
 
 class IndexClient : public std::enable_shared_from_this<IndexClient> {
  public:
   using Value = dory::race::Value;
-
-  LRUCache<uintptr_t, Bucket> cache;
 
  private:
   LOGGER_DECL_INIT(logger, "IndexClient");
@@ -96,10 +93,8 @@ class IndexClient : public std::enable_shared_from_this<IndexClient> {
   std::vector<dory::conn::ReliableConnection*> server_connections;
 
  public:
-  IndexClient(ProcId const id, uint64_t num_servers, size_t const bucket_bits,
-              size_t const cache_size, std::string const& name = "default")
-      : cache{LRUCache<uintptr_t, Bucket>(cache_size)},
-        bucket_bits{bucket_bits},
+  IndexClient(ProcId const id, uint64_t num_servers, size_t const bucket_bits, std::string const& name = "default")
+      : bucket_bits{bucket_bits},
         device{std::move(ctrl::Devices().list().back())} {
     static size_t constexpr AllocatedSize = WrContext::BufferSize * NbContexts;
 
@@ -227,36 +222,12 @@ class IndexClient : public std::enable_shared_from_this<IndexClient> {
     IndexFuture(const std::shared_ptr<IndexClient> _client, uint64_t id)
         : BasicFuture{std::move(_client), id} {}
 
-    void retrySearch(bool use_cache = false) {
+    void retrySearch() {
       step = Step::Searching;
       result = {};
 
       auto& bucketgroups = ctx.getBuffer();
 
-      decltype(client->cache.get(0)) its[2][2];
-
-      if (use_cache & (client->cache.getSize() > 0)) {
-        for (auto const group : {0u, 1u}) {
-          its[group][0] = client->cache.get(remote_read_address[group]);
-          its[group][1] =
-              client->cache.get(remote_read_address[group] + sizeof(Bucket));
-        }
-        for (auto const group : {0u, 1u}) {
-          for (auto const bucket : {0u, 1u}) {
-            if (its[group][bucket] == client->cache.end()) {
-              goto no_cache;
-            }
-          }
-        }
-        for (auto const group : {0u, 1u}) {
-          bucketgroups[group][0] = its[group][0]->second;
-          bucketgroups[group][1] = its[group][1]->second;
-        }
-        step = Step::Done;
-        return;
-      }
-
-    no_cache:
       auto* rc = client->server_connections.at(main_server_idx);
       ctx.ongoing_rdma += 1;
       client->to_poll += 1;
@@ -272,7 +243,7 @@ class IndexClient : public std::enable_shared_from_this<IndexClient> {
       // client->rc->postSend(wr[0]);
     }
 
-    void search(HashedKey const& hkey, bool use_cache = true) {
+    void search(HashedKey const& hkey) {
       main_server_idx = *reinterpret_cast<uint64_t const*>(hkey.data()) %
                         client->server_connections.size();
       check = checksum(hkey);
@@ -289,7 +260,7 @@ class IndexClient : public std::enable_shared_from_this<IndexClient> {
             rc->remoteBuf() + bucket_location * sizeof(Bucket);
       }
 
-      retrySearch(use_cache);
+      retrySearch();
     }
 
     void tryInsert(Value const value) {
@@ -314,16 +285,6 @@ class IndexClient : public std::enable_shared_from_this<IndexClient> {
       }
       switch (step) {
         case Step::Searching: {
-          // Add buckets to cache
-          if (client->cache.getSize() > 0) {
-            for (auto const group : {0u, 1u}) {
-              client->cache.put(remote_read_address[group],
-                                ctx.getBuffer()[group][0]);
-              client->cache.put(remote_read_address[group] + sizeof(Bucket),
-                                ctx.getBuffer()[group][1]);
-            }
-          }
-
           auto& bucketgroups = ctx.getBuffer();
           uintptr_t first_free[2] = {0UL, 0UL};
           uint32_t group_free_nb[2] = {0U, 0U};
