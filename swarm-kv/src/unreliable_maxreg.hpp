@@ -179,12 +179,18 @@ class UnreliableMaxRegFuture : public BasicFuture {
     doNext(WriteTsAndIn);
   }
 
+  void markAsDone() {
+    doNext(Done);
+  }
+
   // TODO(zyf) Add option when doing 2nd attempt tsp ?
 
-  bool isDone() const { return step == Step::Done; }
+  bool isDone() const {
+    return step == Step::Done && (!next_step || next_step == Step::Done);
+  }
 
   bool isLinearized() const {
-    return isDone() || (next_step == Step::Done) || (max_seen_tsp | 1) >= write_entry->kv.in_place_tsp;
+    return (step == Step::Done && !next_step) || next_step == Step::Done || (max_seen_tsp | 1) >= write_entry->kv.in_place_tsp;
   }
 
   LogEntry* getEntry() const { return local_read_entry; }
@@ -389,12 +395,22 @@ class UnreliableMaxRegFuture : public BasicFuture {
   }
 
  public:
+  bool isLazy() const {
+    return state.dead_servers < lazyness_level;
+  }
+  bool isDead() const {
+    return server_idx < state.dead_servers;
+  }
+  bool isLazyOrDead() const {
+    return isLazy() || isDead();
+  }
+
   bool tryStepForward() {
-    if (server_idx < state.dead_servers) {
+    if (isDead()) {
       step = Dead;
       return false;  // Server is dead
     }
-    if (state.dead_servers < lazyness_level) {
+    if (isLazy()) {
       return false; // Enough servers are alive to be lazy
     }
 

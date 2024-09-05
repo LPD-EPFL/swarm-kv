@@ -170,6 +170,9 @@ class RelaxedMaxRegFuture : public BasicFuture {
   std::optional<uint64_t> getMyTsp() const {
     std::optional <uint64_t> x = std::nullopt;
     for (auto& maxreg : maxregs) {
+      if (maxreg.isLazyOrDead()) {
+        continue;
+      }
       auto val = maxreg.getMyTsp();
       if (x < val) {
         x = val;
@@ -181,6 +184,9 @@ class RelaxedMaxRegFuture : public BasicFuture {
   uint64_t getMinTsp() const {
     auto x = max_seen_tsp;
     for (auto& maxreg : maxregs) {
+      if (maxreg.isLazyOrDead()) {
+        continue;
+      }
       auto val = maxreg.getTsp();
       if (val < x) {
         x = val;
@@ -192,6 +198,9 @@ class RelaxedMaxRegFuture : public BasicFuture {
   uint64_t getMyMinTsp() const {
     auto x = uint64_t(-1);
     for (auto& maxreg : maxregs) {
+      if (maxreg.isLazyOrDead()) {
+        continue;
+      }
       auto val = maxreg.getMyTsp().value_or(0);
       if (val < x) {
         x = val;
@@ -202,6 +211,9 @@ class RelaxedMaxRegFuture : public BasicFuture {
 
   bool notified() const {
     for (auto& maxreg : maxregs) {
+      if (maxreg.isLazyOrDead()) {
+        continue;
+      }
       if (maxreg.notified()) {
         return true;
       }
@@ -225,6 +237,9 @@ class RelaxedMaxRegFuture : public BasicFuture {
     size_t count_done = 0;
     size_t count_progress = 0;
     for (auto& maxreg : maxregs) {
+      if (maxreg.isLazyOrDead()) {
+        continue;
+      }
       maxreg.tryStepForward();
       bool ready = maxreg.isDone() || (step == Write && maxreg.isLinearized());
       if (max_seen_tsp < maxreg.getTsp() ||
@@ -260,6 +275,9 @@ class RelaxedMaxRegFuture : public BasicFuture {
         break;
       case TryRead:
         for (auto& maxreg : maxregs) {
+          if (maxreg.isLazyOrDead()) {
+            continue;
+          }
           if (maxreg.enable_in_place && maxreg.getTsp() == max_seen_tsp &&
               (maxreg.getEntry()->kv.in_place_tsp | 1) == (max_seen_tsp | 1)) {
             chsum_t chsum;
@@ -284,6 +302,9 @@ class RelaxedMaxRegFuture : public BasicFuture {
         break;
       case ReadLog:
         for (auto& maxreg : maxregs) {
+          if (maxreg.isLazyOrDead()) {
+            continue;
+          }
           if (filterLogIdAndClientProcId(maxreg.getEntry()->kv.in_place_tsp) ==
               filterLogIdAndClientProcId(max_seen_tsp)) {
             read_entry = maxreg.getEntry();
@@ -303,6 +324,11 @@ class RelaxedMaxRegFuture : public BasicFuture {
       default:
         throw std::runtime_error(
             "Illegal step in RelaxedMaxRegFuture. (tryStepForward)");
+    }
+    if (step == Done) {
+      for (auto& maxreg : maxregs) {
+        maxreg.markAsDone();
+      }
     }
     return true;
   }

@@ -219,7 +219,11 @@ class OopsDataFuture : public BasicFuture {
         break;
       case WTryRepare:
         if (maxreg.notified()) {
-          transitionTo(Done);
+          if (maxreg.isDone()) {
+            transitionTo(Done);
+          } else {
+            transitionTo(Linearized);
+          }
         } else {
           getWriteEntry()->kv.in_place_tsp =
               makeTsp(state.newTs(), log_id, state.proc_id, true);
