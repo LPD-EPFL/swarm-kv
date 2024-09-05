@@ -53,7 +53,8 @@ int main(int argc, char* argv[]) {
   layout.guess_ts = true;
   layout.async_parallelism = 1;
   layout.keys_per_server = 100000;
-  layout.server_logs_per_client = 1;  // No need for logs in raw memory.
+  layout.server_logs_per_client = 0;  // No need for logs in raw memory.
+  layout.num_tsp = 0; // No need for timestamps/pointers in raw memory.
   layout.key_size = 24;
   layout.value_size = 64;
 
