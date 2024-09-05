@@ -21,28 +21,30 @@ class LRUCache {
       return;
     }
 
-    auto it = item_map.find(key);
-    if (it != item_map.end()) {
+    auto [it, inserted] = item_map.try_emplace(key, std::make_pair(val, hand));
+
+    if (!inserted) {
       it->second.first = val;
       item_clock[it->second.second].second += 1;
       return;
     }
 
-    if(size <= item_map.size()) {
+    if(size < item_map.size()) {
       while (true) {
-        if(item_clock.at(hand).second == 0) {
-          item_map.erase(item_clock.at(hand).first);
+        auto& item = item_clock.at(hand);
+        if(item.second == 0) {
+          item_map.erase(item.first);
           break;
         }
-        item_clock.at(hand).second -= 1;
+        item.second -= 1;
         hand = (hand + 1) % item_clock.size();
       }
       item_clock.at(hand) = std::make_pair(key, 0);
+      it->second.second = hand;
     } else {
       item_clock.push_back(std::make_pair(key, 0));
     }
 
-    item_map.insert(std::make_pair(key, std::make_pair(val, hand)));
     hand = (hand + 1) % item_clock.size();
   }
 
