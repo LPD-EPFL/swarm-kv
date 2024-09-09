@@ -51,7 +51,7 @@ Refer to [SWARM-KV's artifact repository](https://github.com/LPD-EPFL/swarm-arti
 ## Navigating the code
 
 Unfortunately, the algorithms presented in the paper were heavily factorized vs our implementation, so there's no clearly defined place where abstraction X or Y is implemented, but the rough mapping is:
-- Safe-Guess' logic approximately corresponds to oops_data_future.hpp.
-- Timestamp validators are part of the RTryNotifyWriter and WTryRepare steps of oops_data_future.hpp.
-- In-n-Out is located in relaxed_maxreg.hpp.
-- The CAS-based MAX-replacement is also implemented in relaxed_maxreg.hpp.
+- Safe-Guess' logic approximately corresponds to [oops_data_future.hpp](swarm-kv/src/oops_data_future.hpp).
+- Timestamp validators are part of the RTryNotifyWriter and WTryRepare steps of [oops_data_future.hpp](swarm-kv/src/oops_data_future.hpp).
+- In-n-Out is located in [unreliable_maxreg.hpp](swarm-kv/src/oops_data_future.hpp).
+- The CAS-based MAX-replacement is also implemented in [unreliable_maxreg.hpp](swarm-kv/src/oops_data_future.hpp).
