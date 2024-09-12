@@ -20,7 +20,6 @@
 
 #include <dory/conn/rc-exchanger.hpp>
 #include <dory/conn/rc.hpp>
-#include <dory/crypto/hash/blake3.hpp>
 #include <dory/ctrl/block.hpp>
 #include <dory/ctrl/device.hpp>
 #include <dory/memstore/store.hpp>

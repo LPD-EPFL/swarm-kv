@@ -1,0 +1,38 @@
+# Warmup:
+b main.cpp:343
+
+# Normal operation:
+b oops_future.hpp:103
+b oops_future.hpp:133
+b unreliable_maxreg.hpp:241
+b unreliable_maxreg.hpp:259
+b unreliable_maxreg.hpp:260
+b unreliable_maxreg.hpp:274
+b unreliable_maxreg.hpp:296
+b unreliable_maxreg.hpp:309
+b unreliable_maxreg.hpp:317
+b unreliable_maxreg.hpp:338
+b unreliable_maxreg.hpp:350
+b unreliable_maxreg.hpp:353
+b unreliable_maxreg.hpp:360
+b unreliable_maxreg.hpp:366
+b unreliable_maxreg.hpp:281
+b unreliable_maxreg.hpp:385
+b oops_client.hpp:55
+
+TryWriteAll x2 ->
+in_place + read tsp + out_place + cas
+WriteTsAndIn x2 ->
+cas + in_place
+
+b oops_future.hpp:103
+b oops_future.hpp:133
+b rc.cpp:281
+b oops_client.hpp:55
+
+353 x3 x2
+360 x2
+366 x1
+
+
+b oops_data_future.hpp:201

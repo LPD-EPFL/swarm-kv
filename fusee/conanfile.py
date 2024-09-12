@@ -44,7 +44,6 @@ class DoryFuseeConan(ConanFile):
         self.requires("dory-ctrl/0.0.1")
         self.requires("dory-shared/0.0.1")
         self.requires("dory-extern/0.0.1")
-        self.requires("dory-crypto/0.0.1")
         self.requires("lyra/1.5.1")
         self.requires("hipony-enumerate/2.4.1")
         self.requires("xxhash/0.8.1")
