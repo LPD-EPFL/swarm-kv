@@ -51,7 +51,28 @@ Refer to [SWARM-KV's artifact repository](https://github.com/LPD-EPFL/swarm-arti
 ## Navigating the code
 
 Unfortunately, the algorithms presented in the paper were heavily factorized vs our implementation, so there's no clearly defined place where abstraction X or Y is implemented, but the rough mapping is:
-- Safe-Guess' logic approximately corresponds to [oops_data_future.hpp](swarm-kv/src/oops_data_future.hpp).
-- Timestamp validators are part of the RTryNotifyWriter and WTryRepare steps of [oops_data_future.hpp](swarm-kv/src/oops_data_future.hpp).
-- In-n-Out is located in [unreliable_maxreg.hpp](swarm-kv/src/oops_data_future.hpp).
-- The CAS-based MAX-replacement is also implemented in [unreliable_maxreg.hpp](swarm-kv/src/oops_data_future.hpp).
+- In-n-Out and the CAS-based MAX-replacement are located in [unreliable_maxreg.hpp](swarm-kv/src/unreliable_maxreg.hpp).
+- [relaxed_maxreg.hpp](swarm-kv/src/relaxed_maxreg.hpp) uses the above and provides the replicated max register abstractions and ensures operations are executed on a majority of servers.
+- [oops_data_future.hpp](swarm-kv/src/oops_data_future.hpp) uses the above and provides Safe-Guess' logic.
+- The above components implements state machines where the "`step`" is the current state in the respective algorithms and RDMA requests are sent by [unreliable_maxreg.hpp](swarm-kv/src/unreliable_maxreg.hpp) when transitioning between steps.
+- Timestamp validators are part of the `RTryNotifyWriter` and `WTryRepare` steps of [oops_data_future.hpp](swarm-kv/src/oops_data_future.hpp).
+- [tspointers.hpp](swarm-kv/src/tspointers.hpp) corresponds to metadata buffers that both contain a timestamp and a pointer to the out-of-place data.
+- [oops_client.hpp](swarm-kv/src/oops_client.hpp) initiates and manages all instances of [oops_data_future.hpp](swarm-kv/src/oops_data_future.hpp).
+- [oops_state.hpp](swarm-kv/src/oops_state.hpp) stores state and configuration shared between the client and all the underlying futures.
+- [layout.hpp](swarm-kv/src/layout.hpp) contains the system parametters and allow for easy translations from element indices to RDMA-accessible memory locations in clients and servers.
+- [latency.hpp](swarm-kv/src/latency.hpp) allows for efficient percentile latency measurements.
+- [main.cpp](swarm-kv/src/main.cpp) handles all the arguments, bootstraps the client or server, and generates and executes the workloads on clients.
+- The [race](swarm-kv/src/race) subfolder contains a simplified implementation of RACE, a low-latency RDMA-based index.
+
+All the above are contained in the swarm-kv submodule.
+
+The repository also includes the following submodules:
+- fusee: an implementation of the FUSEE KVS
+- conn: provides interfaces to easily create and manage reliable connections over RDMA.
+- ctrl: provides interfaces to manage RDMA devices and control blocks.
+- memory: provides datastructures used by ctrl
+- extern: provides the ibverbs and memcached external librairies
+- memstore: provides an interface to access memcached. This module is used by conn to simplify the coordination of clients and servers for the configuration of RDMA connections.
+- shared: provides various tools used by multiple submodules
+- third-party: provides third-party tools (used by conn)
+- special: provides cmd-lines tools
