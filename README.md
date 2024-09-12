@@ -71,10 +71,10 @@ The repository also includes the following submodules:
 - conn: provides interfaces to easily create and manage reliable connections over RDMA.
 - ctrl: provides interfaces to manage RDMA devices and control blocks.
 - memory: provides datastructures used by ctrl
-- extern: provides the ibverbs and memcached external librairies
 - memstore: provides an interface to access memcached. This module is used by conn to simplify the coordination of clients and servers for the configuration of RDMA connections.
+- special: provides cmd-lines tools
+- extern: provides the ibverbs and memcached external librairies
 - shared: provides various tools used by multiple submodules
 - third-party: provides third-party tools (used by conn)
-- special: provides cmd-lines tools
 
 The dependencies are described in [targets.yaml](targets.yaml)
