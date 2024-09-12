@@ -2,12 +2,12 @@ shared : []
 extern : []
 third-party : []
 
+special : [third-party, shared]
 memstore : [shared, extern]
 
-ctrl : [shared, extern, memory]
-conn : [shared, ctrl, memstore, third-party]
-special : [third-party, shared]
-memory : [special, shared]
+memory : [special]
+ctrl : [extern, memory]
+conn : [ctrl, memstore]
 
-fusee : [extern, shared, memstore, ctrl, conn]
-swarm-kv : [extern, shared, memstore, ctrl, conn]
+fusee : [conn]
+swarm-kv : [conn]
