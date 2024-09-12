@@ -76,3 +76,5 @@ The repository also includes the following submodules:
 - shared: provides various tools used by multiple submodules
 - third-party: provides third-party tools (used by conn)
 - special: provides cmd-lines tools
+
+The dependencies are described in [targets.yaml](targets.yaml)
