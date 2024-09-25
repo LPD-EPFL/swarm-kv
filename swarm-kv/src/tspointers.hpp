@@ -2,9 +2,9 @@
 
 #include <cstdint>
 
-constexpr uint64_t TsSize = 28;
+constexpr uint64_t TsSize = 32;
 constexpr uint64_t LogIdSize = 24;
-constexpr uint64_t ClientIdSize = 11;
+constexpr uint64_t ClientIdSize = 7;
 
 constexpr uint64_t TsMask = (1ULL << TsSize) - 1;
 constexpr uint64_t LogIdMask = (1ULL << LogIdSize) - 1;
@@ -19,6 +19,15 @@ static_assert(ClientProcIdOffset == 1);
 
 static uint64_t makeTsp(uint64_t ts, uint64_t log_id, uint64_t client_proc_id,
                         bool validated) {
+  if(ts > TsMask) {
+    throw std::runtime_error("Timestamp overflow in tsp.");
+  }
+  if(log_id > LogIdMask) {
+    throw std::runtime_error("Log id overflow in tsp.");
+  }
+  if(client_proc_id > ClientProcIdMask) {
+    throw std::runtime_error("Client id overflow in tsp.");
+  }
   uint64_t out = (ts & TsMask) << TsOffset;
   out |= (log_id & LogIdMask) << LogIdOffset;
   out |= (client_proc_id & ClientProcIdMask) << ClientProcIdOffset;

@@ -53,13 +53,13 @@ int main(int argc, char* argv[]) {
   layout.guess_ts = true;
   layout.async_parallelism = 1;
   layout.keys_per_server = 100000;
-  layout.server_logs_per_client = 1;  // No need for logs in raw memory.
+  layout.server_logs_per_client = 0;  // No need for logs in raw memory.
+  layout.num_tsp = 0; // No need for timestamps/pointers in raw memory.
   layout.key_size = 24;
   layout.value_size = 64;
 
   layout.bucket_bits = 18;
-  layout.bucket_cache_size = 0;
-  size_t pointer_cache_size = UINT64_MAX / 1024;
+  uint64_t pointer_cache_size = UINT64_MAX;
   bool detailed = true;
 
   std::string ycsb_path = "./YCSB/bin/ycsb.sh";
@@ -82,13 +82,11 @@ int main(int argc, char* argv[]) {
       lyra::opt(layout.server_logs_per_client, "server_logs_per_client")
           .optional()["-l"]["--logs"] |
       lyra::opt(layout.key_size, "key_size").optional()["-k"]["--keysize"] |
-      lyra::opt(layout.value_size, "value_size").optional()["-v"]["--valuesize"]
+      lyra::opt(layout.value_size, "value_size").optional()["-v"]["--valuesize"] |
       //  | lyra::opt(layout.logs_per_client, "logs_per_client")
       //        .optional()["-l"]["--logsperclient"]
-      | lyra::opt(layout.bucket_bits, "bucket_bits")
+      lyra::opt(layout.bucket_bits, "bucket_bits")
             .optional()["-b"]["--bucketbits"] |
-      lyra::opt(layout.bucket_cache_size, "bucket_cache_size")
-          .optional()["-u"]["--bucketcachesize"] |
       lyra::opt(pointer_cache_size, "pointer_cache_size")
           .optional()["-t"]["--pointercachesize"] |
       lyra::opt(workload, "workload").optional()["-w"]["--workload"] |
@@ -104,7 +102,9 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  pointer_cache_size = (pointer_cache_size * 1024) / 48;
+  if(pointer_cache_size != UINT64_MAX) {
+    pointer_cache_size = (pointer_cache_size * 1024) / 48;
+  }
 
   auto num_proc = layout.num_clients + layout.num_servers;
 
@@ -364,7 +364,7 @@ int main(int argc, char* argv[]) {
       auto hkey = hash(key);
       auto cache_entry = state.pointer_cache.get(hkey);
       uint64_t kv_id = 0ul;
-      if (cache_entry == state.pointer_cache.end()) {
+      if (!cache_entry) {
         index_future.search(hkey);
         while (!index_future.isDone()) {
           state.index->tickRdma(progress);
@@ -376,7 +376,7 @@ int main(int argc, char* argv[]) {
         }
         kv_id = result.matches[0].value();
       } else {
-        kv_id = cache_entry->second.first;
+        kv_id = (*cache_entry).first;
       }
 
       if (measureLatency) {
@@ -427,7 +427,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      if (cache_entry == state.pointer_cache.end()) {
+      if (!cache_entry) {
         state.pointer_cache.put(hkey, {kv_id, 0ul});
       }
     }

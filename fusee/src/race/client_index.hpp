@@ -27,18 +27,12 @@
 #include <dory/shared/move-indicator.hpp>
 
 #include "types.hpp"
-#include "lru-cache.hpp"
-
-
 
 namespace dory::race {
 
 class ClientIndex: public std::enable_shared_from_this<ClientIndex> {
 public:
   using Value = dory::race::Value;
-
-  std::mutex cache_mutex;
-  LRUCache<uintptr_t, Bucket> cache;
 
 private:
   LOGGER_DECL_INIT(logger, "ClientIndex");
@@ -124,8 +118,8 @@ private:
   Delayed<conn::ReliableConnection> rc;
 
 public:
-  ClientIndex(ProcId const id, ProcId const server_id, size_t const bucket_bits, size_t const cache_size, std::string const& name="default")
-  : cache{LRUCache<uintptr_t, Bucket>(cache_size)}, bucket_bits{bucket_bits},
+  ClientIndex(ProcId const id, ProcId const server_id, size_t const bucket_bits, std::string const& name="default")
+  : bucket_bits{bucket_bits},
     device{std::move(ctrl::Devices().list().back())} {
   
     static size_t constexpr AllocatedSize = WrContext::BufferSize * NbContexts;
@@ -260,43 +254,17 @@ public:
     HashedKey hkey;
 
     SearchFuture(const std::shared_ptr<ClientIndex> _client,
-                 HashedKey hkey, bool use_cache = true)
+                 HashedKey hkey)
         : BasicFuture{std::move(_client)}, hkey{hkey} {
       auto const bucket_ids = client->bucketOffsets(hkey);
       auto& bucketgroups = ctx->getSearchBuffer();
-      use_cache &= client->cache.getSize() > 0;
 
       for(auto const group : {0u, 1u}) {
         bucket_side[group] = (bucket_ids[group] & 1) == 1;
         auto const bucket_location = (bucket_ids[group] >> 1) * 3 + bucket_side[group];
         remote_read_offsets[group] = bucket_location * sizeof(Bucket);
       }
-      
-      decltype(client->cache.get(0)) its[2][2];
 
-      if (use_cache) {
-        std::lock_guard<std::mutex> lock(client->cache_mutex);
-        for(auto const group : {0u, 1u}) {
-          its[group][0] = client->cache.get(remote_read_offsets[group]);
-          its[group][1] = client->cache.get(remote_read_offsets[group] + sizeof(Bucket));
-        }
-        for(auto const group : {0u, 1u}) {
-          for(auto const bucket : {0u, 1u}) {
-            if (its[group][bucket] == client->cache.end()) {
-                goto no_cache;
-            }
-          }
-        }
-        for(auto const group : {0u, 1u}) {
-          bucketgroups[group][0] = its[group][0]->second;
-          bucketgroups[group][1] = its[group][1]->second;
-        }
-        ctx->ongoing_rdma = 0;
-        step = Step::Done;
-        return;
-      }
-      
-      no_cache:
       ctx->ongoing_rdma = 1;
       client->to_poll += 1;
       for(auto const group : {0u, 1u}) {
@@ -319,14 +287,6 @@ public:
       switch (step) {
         case Step::Searching: {
           if (!ctx->ongoing_rdma) {
-            if(client->cache.getSize() > 0) {
-              std::lock_guard<std::mutex> lock(client->cache_mutex);
-              for(auto const group : {0u, 1u}) {
-                client->cache.put(remote_read_offsets[group], ctx->getSearchBuffer()[group][0]);
-                client->cache.put(remote_read_offsets[group] + sizeof(Bucket), ctx->getSearchBuffer()[group][1]);
-              }
-            }
-
             step = Step::Done;
 
             // TODO(zyf): also cache free slots as bytes (insert optimization)
@@ -389,8 +349,8 @@ public:
     }
   };
 
-  SearchFuture search(HashedKey hkey, bool use_cache=true) {
-    return SearchFuture(shared_from_this(), hkey, use_cache);
+  SearchFuture search(HashedKey hkey) {
+    return SearchFuture(shared_from_this(), hkey);
   }
 
   // Try insert
